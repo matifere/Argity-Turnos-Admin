@@ -18,9 +18,7 @@ class AppUpdateInfo {
 }
 
 class UpdateService {
-  // TODO: Reemplazar con la URL real de tu Cloudflare Pages
-  static const String updateUrl =
-      'https://api.jsonbin.io/v3/qs/6a60fb7eda38895dfe8071be';
+  static const String updateUrl = 'https://argity.com/update.json';
 
   /// Revisa si hay una actualización disponible.
   /// Si hay, devuelve un objeto AppUpdateInfo. Si no, devuelve null.
@@ -39,8 +37,8 @@ class UpdateService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
-        // Soporte para jsonbin.io o JSON puro
-        final actualData = data.containsKey('record') ? data['record'] : data;
+        // Como ahora usarás tu propio servidor/página, leemos el JSON puro
+        final actualData = data;
 
         final latestVersion = actualData['latest_version'] as String;
         final releaseNotes = actualData['release_notes'] as String?;
