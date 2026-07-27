@@ -38,8 +38,12 @@ class _TurnoCardState extends State<TurnoCard> {
       kaliColors.sand2,
     ];
 
-    // Pick a color based on the class name so the same class always has the same color
-    bg = palette[t.name.hashCode.abs() % palette.length];
+    if (t.isFull) {
+      bg = kaliColors.error;
+    } else {
+      // Pick a color based on the class name so the same class always has the same color
+      bg = palette[t.name.hashCode.abs() % palette.length];
+    }
     
     // Calculate luminance to decide text color (dark or light)
     fg = bg.computeLuminance() > 0.5 ? kaliColors.espresso : kaliColors.warmWhite;

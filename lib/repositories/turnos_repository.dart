@@ -195,33 +195,40 @@ class TurnosRepository {
     });
 
     // 2. Si marcamos recurrencia, proyectamos sobre las clases futuras de la
-    //    misma serie, desde el día siguiente a este turno hasta fin de mes (o
-    //    de año), inscribiendo mientras al alumno le quede cupo mensual de
-    //    reservas según su plan.
+    //    misma serie, desde el día siguiente a este turno hasta la fecha de
+    //    vencimiento del plan del alumno, inscribiendo mientras al alumno le
+    //    quede cupo mensual de reservas según su plan.
     if (enrollmentType != EnrollmentType.single) {
-      // Fetch max reservations limit for the user
+      // Fetch max reservations limit and end date for the user's active/pending plans
       final subResList = await _client
           .from('subscriptions')
-          .select('plans(max_reservations_per_month)')
+          .select('end_date, plans(max_reservations_per_month)')
           .eq('user_id', userId)
           .inFilter('status', ['active', 'pending']);
 
       int maxRes = 0;
+      DateTime? maxEndDate;
       for (final subRes in (subResList as List<dynamic>)) {
         if (subRes['plans'] != null &&
             subRes['plans']['max_reservations_per_month'] != null) {
           maxRes += subRes['plans']['max_reservations_per_month'] as int;
         }
+        if (subRes['end_date'] != null) {
+          final ed = DateTime.tryParse(subRes['end_date'].toString());
+          if (ed != null) {
+            if (maxEndDate == null || ed.isAfter(maxEndDate)) {
+              maxEndDate = ed;
+            }
+          }
+        }
       }
 
       // Only project if maxRes > 0
       if (maxRes > 0) {
-        final DateTime untilDate;
-        if (enrollmentType == EnrollmentType.month) {
-          untilDate = DateTime(session.date.year, session.date.month + 1, 0);
-        } else {
-          untilDate = DateTime(session.date.year, 12, 31);
-        }
+        // Calcular la fecha límite basada en el vencimiento del plan del alumno.
+        // Si no se encuentra fecha de vencimiento, por defecto el fin del mes actual.
+        final DateTime untilDate =
+            maxEndDate ?? DateTime(session.date.year, session.date.month + 1, 0);
 
         final futureSessions = await getFutureSeriesSessions(
           session: session,

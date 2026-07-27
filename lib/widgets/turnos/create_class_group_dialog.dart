@@ -6,7 +6,7 @@ import 'package:argrity/theme/kali_colors_extension.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-enum _RecurrenceOption { oneMonth, twoMonths, restOfYear }
+enum _RecurrenceOption { unique, oneMonth, twoMonths, restOfYear }
 
 class CreateClassGroupDialog extends StatefulWidget {
   const CreateClassGroupDialog({super.key});
@@ -66,7 +66,7 @@ class _CreateClassGroupDialogState extends State<CreateClassGroupDialog> {
   TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 9, minute: 0);
 
-  _RecurrenceOption _recurrenceOption = _RecurrenceOption.oneMonth;
+  _RecurrenceOption _recurrenceOption = _RecurrenceOption.restOfYear;
 
   // 0 = Lunes, 6 = Domingo
   final Set<int> _selectedDays = {};
@@ -119,6 +119,7 @@ class _CreateClassGroupDialogState extends State<CreateClassGroupDialog> {
 
       final weekStart = context.read<TurnosBloc>().state.currentWeekStart;
       final weeks = switch (_recurrenceOption) {
+        _RecurrenceOption.unique => 1,
         _RecurrenceOption.oneMonth => 4,
         _RecurrenceOption.twoMonths => 8,
         _RecurrenceOption.restOfYear => _weeksUntilEndOfYear(weekStart),
@@ -402,6 +403,10 @@ class _CreateClassGroupDialogState extends State<CreateClassGroupDialog> {
                           horizontal: 16, vertical: 12),
                     ),
                     items: const [
+                      DropdownMenuItem(
+                        value: _RecurrenceOption.unique,
+                        child: Text('Clase única (solo esta semana/fecha)'),
+                      ),
                       DropdownMenuItem(
                         value: _RecurrenceOption.oneMonth,
                         child: Text('1 mes'),

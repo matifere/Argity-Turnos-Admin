@@ -65,8 +65,7 @@ class TurnoEdited extends TurnosEvent {
 
 enum EnrollmentType {
   single,
-  month,
-  year,
+  planValidity,
 }
 
 /// Se inscribe a un alumno a un turno
