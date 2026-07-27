@@ -42,66 +42,26 @@ class _AssignStudentDialogState extends State<AssignStudentDialog> {
     try {
       final client = Supabase.instance.client;
       final sessionDate = widget.session.date;
+      final instId = widget.session.institutionId;
       final monthStart = DateTime(sessionDate.year, sessionDate.month, 1);
       final monthEnd = DateTime(sessionDate.year, sessionDate.month + 1, 0);
       final startIso = monthStart.toIso8601String().split('T')[0];
       final endIso = monthEnd.toIso8601String().split('T')[0];
 
-      // 1. Fetch profiles
-      final profilesRes = await client
+      // 1. Prepare single embedded query for profiles with their subscriptions and reservations
+      var profilesQuery = client
           .from('profiles')
-          .select('id, full_name, avatar_url')
-          .eq('role', 'client')
-          .order('full_name', ascending: true);
-
-      // 2. Fetch active/pending subscriptions
-      final subsRes = await client
-          .from('subscriptions')
-          .select('user_id, status, end_date, plans(max_reservations_per_month)')
-          .inFilter('status', ['active', 'pending']);
-
-      // Map subscriptions by user_id, sum their max_reservations and find latest end_date
-      final Map<String, int> userMaxRes = {};
-      final Map<String, DateTime?> userPlanEndDate = {};
-      final Set<String> usersWithPlan = {};
-      for (var sub in (subsRes as List<dynamic>)) {
-        final uid = sub['user_id'] as String;
-        usersWithPlan.add(uid);
-        final plansData = sub['plans'];
-        if (plansData != null &&
-            plansData['max_reservations_per_month'] != null) {
-          userMaxRes[uid] = (userMaxRes[uid] ?? 0) +
-              (plansData['max_reservations_per_month'] as int);
-        }
-        if (sub['end_date'] != null) {
-          final ed = DateTime.tryParse(sub['end_date'].toString());
-          if (ed != null) {
-            final currentEd = userPlanEndDate[uid];
-            if (currentEd == null || ed.isAfter(currentEd)) {
-              userPlanEndDate[uid] = ed;
-            }
-          }
-        }
+          .select('''
+            id, full_name, avatar_url,
+            subscriptions!subscriptions_user_id_fkey(status, end_date, plans(max_reservations_per_month)),
+            reservations!reservations_user_id_fkey(status, class_sessions(date, institution_id))
+          ''')
+          .eq('role', 'client');
+      if (instId != null) {
+        profilesQuery = profilesQuery.eq('institution_id', instId);
       }
+      final profilesFuture = profilesQuery.order('full_name', ascending: true);
 
-      // 3. Fetch reservations for the month (excluyendo canceladas; el .or
-      //    preserva las de status NULL legacy que cuentan como confirmadas).
-      final resRes = await client
-          .from('reservations')
-          .select('user_id, status, class_sessions!inner(date)')
-          .or('status.is.null,status.neq.cancelled')
-          .gte('class_sessions.date', startIso)
-          .lte('class_sessions.date', endIso);
-
-      // Count reservations per user
-      final Map<String, int> userReservations = {};
-      for (var r in (resRes as List<dynamic>)) {
-        final uid = r['user_id'] as String;
-        userReservations[uid] = (userReservations[uid] ?? 0) + 1;
-      }
-
-      // 4b. ¿Hay más sesiones de esta misma serie a futuro?
-      //     Si las hay, ofrecemos proyectar la inscripción; si no, no aparece.
       final seriesStartIso = sessionDate
           .add(const Duration(days: 1))
           .toIso8601String()
@@ -116,31 +76,76 @@ class _AssignStudentDialogState extends State<AssignStudentDialog> {
         seriesQuery = seriesQuery
             .eq('name', widget.session.name)
             .eq('start_time', widget.session.startTime);
-        if (widget.session.institutionId != null) {
-          seriesQuery =
-              seriesQuery.eq('institution_id', widget.session.institutionId!);
+        if (instId != null) {
+          seriesQuery = seriesQuery.eq('institution_id', instId);
         }
       }
-      final seriesRes = await seriesQuery.limit(1);
-      final canProject = (seriesRes as List).isNotEmpty;
+      final seriesFuture = seriesQuery.limit(1);
+
+      // Execute queries concurrently
+      final results = await Future.wait([
+        profilesFuture,
+        seriesFuture,
+      ]);
+
+      final profilesRes = results[0] as List<dynamic>;
+      final seriesRes = results[1] as List<dynamic>;
+
+      final canProject = seriesRes.isNotEmpty;
 
       // 4. Filtrar los que ya están anotados en esta sesión
       final enrolledIds =
           widget.session.enrolledStudents.map((e) => e.userId).toSet();
 
-      final available = (profilesRes as List<dynamic>)
+      final available = profilesRes
           .map((e) => Map<String, dynamic>.from(e as Map<String, dynamic>))
           .where((p) => !enrolledIds.contains(p['id']))
           .map((p) {
-        final uid = p['id'] as String;
-        String? disabledReason;
+        final subs = (p['subscriptions'] as List<dynamic>?) ?? [];
         int maxRes = 0;
-        int currRes = userReservations[uid] ?? 0;
+        DateTime? planEndDate;
+        bool hasActivePlan = false;
 
-        if (!usersWithPlan.contains(uid)) {
+        for (var sub in subs) {
+          final status = sub['status'];
+          if (status == 'active' || status == 'pending') {
+            hasActivePlan = true;
+            final plansData = sub['plans'];
+            if (plansData != null &&
+                plansData['max_reservations_per_month'] != null) {
+              maxRes += (plansData['max_reservations_per_month'] as int);
+            }
+            if (sub['end_date'] != null) {
+              final ed = DateTime.tryParse(sub['end_date'].toString());
+              if (ed != null) {
+                if (planEndDate == null || ed.isAfter(planEndDate)) {
+                  planEndDate = ed;
+                }
+              }
+            }
+          }
+        }
+
+        final resList = (p['reservations'] as List<dynamic>?) ?? [];
+        int currRes = 0;
+        for (var r in resList) {
+          final status = r['status'];
+          if (status == 'cancelled') continue;
+          final session = r['class_sessions'];
+          if (session == null) continue;
+          if (instId != null && session['institution_id'] != instId) continue;
+          final dateStr = session['date']?.toString();
+          if (dateStr == null) continue;
+          if (dateStr.compareTo(startIso) >= 0 &&
+              dateStr.compareTo(endIso) <= 0) {
+            currRes++;
+          }
+        }
+
+        String? disabledReason;
+        if (!hasActivePlan) {
           disabledReason = 'Sin plan activo';
         } else {
-          maxRes = userMaxRes[uid] ?? 0;
           if (maxRes > 0 && currRes >= maxRes) {
             disabledReason = 'Límite mensual alcanzado';
           }
@@ -149,7 +154,7 @@ class _AssignStudentDialogState extends State<AssignStudentDialog> {
         p['disabledReason'] = disabledReason;
         p['currRes'] = currRes;
         p['maxRes'] = maxRes;
-        p['endDate'] = userPlanEndDate[uid];
+        p['endDate'] = planEndDate;
         return p;
       }).toList();
 
