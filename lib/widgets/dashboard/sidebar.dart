@@ -23,7 +23,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
   // El rol está en el JWT local — sin round trip a la base de datos.
   late final String _role = ProfileCache.role;
 
-  static const _blockedForAdmin = {'Entrenadores', 'Pagos', 'Planes'};
+  static const _blockedForAdmin = {'Entrenadores', 'Pagos', 'Planes', 'Institución', 'Tema'};
 
   @override
   void initState() {
@@ -344,9 +344,9 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
         ),
         children: [
           _buildSubMenuItem('Cuenta', kaliColors),
-          _buildSubMenuItem('Institución', kaliColors),
+          if (_role != 'admin') _buildSubMenuItem('Institución', kaliColors),
           _buildSubMenuItem('Suscripción', kaliColors),
-          _buildSubMenuItem('Tema', kaliColors),
+          if (_role != 'admin') _buildSubMenuItem('Tema', kaliColors),
         ],
       ),
     );
