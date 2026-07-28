@@ -134,18 +134,20 @@ class _PlanFormDialogState extends State<PlanFormDialog> {
                       .body(kaliColors.espresso.withValues(alpha: 0.6)),
                 ),
                 const SizedBox(height: 24),
-                
+
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: kaliColors.sand,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: kaliColors.clay.withValues(alpha: 0.5)),
+                    border: Border.all(
+                        color: kaliColors.clay.withValues(alpha: 0.5)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info_outline_rounded, color: kaliColors.espresso, size: 20),
+                      Icon(Icons.info_outline_rounded,
+                          color: kaliColors.espresso, size: 20),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -173,7 +175,11 @@ class _PlanFormDialogState extends State<PlanFormDialog> {
                   initialValue: _name,
                   decoration:
                       _inputDecoration('Ej. Plan Mensual 2x', kaliColors),
-                  validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+                  validator: (v) => v == null || v.isEmpty
+                      ? 'Requerido'
+                      : v.length > 15
+                          ? 'Max caract = 15'
+                          : null,
                   onSaved: (v) => _name = v!,
                 ),
                 const SizedBox(height: 16),

@@ -70,8 +70,9 @@ class _StudentFormDialogState extends State<StudentFormDialog> {
     final pass = _passwordController.text;
 
     if (name.isEmpty) {
-      if (mounted)
+      if (mounted) {
         setState(() => _errorMessage = 'El nombre no puede estar vacío');
+      }
       return;
     }
 

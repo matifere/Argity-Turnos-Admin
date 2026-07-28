@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print, depend_on_referenced_packages, unused_local_variable
 import 'package:supabase/supabase.dart';
 
 void main() async {

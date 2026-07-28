@@ -33,19 +33,19 @@ class _JoinQrDialogState extends State<JoinQrDialog> {
         ),
       );
 
-      final size = 1024.0;
+      const size = 1024.0;
       final recorder = ui.PictureRecorder();
       final canvas = ui.Canvas(recorder);
 
       // Dibujar fondo blanco para que el PNG sea legible en modo oscuro o al imprimir
       final bgPaint = Paint()..color = const Color(0xFFFFFFFF);
-      canvas.drawRect(Rect.fromLTWH(0, 0, size, size), bgPaint);
+      canvas.drawRect(const Rect.fromLTWH(0, 0, size, size), bgPaint);
 
       // Dibujar QR encima con un margen
-      final qrSize = size * 0.9;
-      final offset = (size - qrSize) / 2;
+      const qrSize = size * 0.9;
+      const offset = (size - qrSize) / 2;
       canvas.translate(offset, offset);
-      painter.paint(canvas, Size(qrSize, qrSize));
+      painter.paint(canvas, const Size(qrSize, qrSize));
 
       final picture = recorder.endRecording();
       final img = await picture.toImage(size.toInt(), size.toInt());

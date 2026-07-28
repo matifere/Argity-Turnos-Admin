@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -17,7 +18,7 @@ Future<void> _listenForAuth(HttpServer server) async {
       try {
         await Supabase.instance.client.auth.exchangeCodeForSession(code);
       } catch (e) {
-        print('Error exchanging code: $e');
+        debugPrint('Error exchanging code: $e');
       }
       break;
     }

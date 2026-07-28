@@ -72,7 +72,7 @@ class SettingsThemeScreen extends StatelessWidget {
                       const SizedBox(width: 16),
                       Switch(
                         value: state.isDarkMode,
-                        activeColor: kaliColors.warmWhite,
+                        activeThumbColor: kaliColors.warmWhite,
                         activeTrackColor: kaliColors.espresso,
                         inactiveThumbColor:
                             kaliColors.espresso.withValues(alpha: 0.7),
@@ -143,7 +143,6 @@ class _ThemeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final kaliColors = Theme.of(context).extension<KaliColorsExtension>()!;
     final currentState = context.watch<ThemeCubit>().state;
     final isActive = currentState.themeId == themeId;
 

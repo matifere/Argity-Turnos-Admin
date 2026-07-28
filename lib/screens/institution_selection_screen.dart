@@ -61,7 +61,7 @@ class _InstitutionSelectionScreenState
       });
 
       // Recuperar el token de MP que la Edge Function guardó en los metadatos
-      final mpToken = user?.userMetadata?['mp_access_token'];
+      final mpToken = user.userMetadata?['mp_access_token'];
       if (mpToken != null) {
         await Supabase.instance.client
             .from('institutions')

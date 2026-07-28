@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print, depend_on_referenced_packages
 import 'package:supabase/supabase.dart';
 
 Future<void> main() async {
@@ -17,7 +18,7 @@ Future<void> main() async {
     
     final instData = data!['institutions'];
     print('InstData: $instData');
-    print('ThemeId: ' + instData['theme_id'].toString());
+    print('ThemeId: ${instData['theme_id']}');
 
     final subData = await client
         .from('tenant_subscriptions')
