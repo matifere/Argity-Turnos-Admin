@@ -156,6 +156,7 @@ class _DashboardSidebarState extends State<DashboardSidebar> {
                             _buildMenuItem(Icons.fitness_center_outlined, 'Entrenadores'),
                           _buildMenuItem(Icons.calendar_today_outlined, 'Turnos'),
                           _buildMenuItem(Icons.assignment_outlined, 'Rutinas'),
+                          _buildMenuItem(Icons.campaign_outlined, 'Notificaciones'),
                           if (_role != 'admin') _buildPagosMenu(kaliColors),
                         ],
                       ),

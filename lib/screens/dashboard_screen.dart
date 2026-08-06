@@ -14,6 +14,7 @@ import 'package:argrity/screens/entrenadores_screen.dart';
 import 'package:argrity/screens/turnos_screen.dart';
 import 'package:argrity/screens/rutinas_screen.dart';
 import 'package:argrity/screens/pagos_screen.dart';
+import 'package:argrity/screens/notificaciones_screen.dart';
 import 'package:argrity/screens/settings/settings_theme_screen.dart';
 import 'package:argrity/screens/settings/settings_subscription_screen.dart';
 import 'package:argrity/screens/settings/settings_account_screen.dart';
@@ -33,6 +34,8 @@ class DashboardScreen extends StatelessWidget {
         return const TurnosScreen();
       case 'Rutinas':
         return const RutinasScreen();
+      case 'Notificaciones':
+        return const NotificacionesScreen();
       case 'Pagos':
         return const PagosScreen(view: PagosView.alumnos);
       case 'Planes':
