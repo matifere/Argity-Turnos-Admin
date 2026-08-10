@@ -126,6 +126,26 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     emit(state.copyWith(notifications: updatedList));
   }
 
+  Future<void> sendNotification({
+    required String title,
+    required String message,
+    String? targetUserId,
+  }) async {
+    if (_channel == null) return;
+    try {
+      await _channel!.sendBroadcastMessage(
+        event: 'new_notification',
+        payload: {
+          'title': title,
+          'message': message,
+          if (targetUserId != null) 'user_id': targetUserId,
+        },
+      );
+    } catch (e) {
+      // Ignore or log error
+    }
+  }
+
   void clearAll() {
     emit(state.copyWith(notifications: []));
   }

@@ -1,5 +1,8 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:argrity/bloc/alumnos/alumnos_bloc.dart';
+import 'package:argrity/bloc/notifications/notifications_cubit.dart';
 import 'package:argrity/theme/kali_colors_extension.dart';
 
 class NotificacionesScreen extends StatefulWidget {
@@ -13,13 +16,26 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
   final _formKey = GlobalKey<FormState>();
   final _tituloController = TextEditingController();
   final _mensajeController = TextEditingController();
+  final _searchController = TextEditingController();
   
   String _targetType = 'all'; // 'all' or 'selected'
+  final Set<String> _selectedStudentIds = {};
+  
+  @override
+  void initState() {
+    super.initState();
+    // Disparar carga de alumnos si no están cargados
+    final alumnosBloc = context.read<AlumnosBloc>();
+    if (alumnosBloc.state is! AlumnosLoaded) {
+      alumnosBloc.add(AlumnosLoadRequested());
+    }
+  }
   
   @override
   void dispose() {
     _tituloController.dispose();
     _mensajeController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -119,6 +135,7 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
                           ),
                           const SizedBox(height: 8),
                           TextFormField(
+                            controller: _searchController,
                             decoration: InputDecoration(
                               hintText: 'Ej. Juan Pérez...',
                               hintStyle: TextStyle(
@@ -134,11 +151,72 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          BlocBuilder<AlumnosBloc, AlumnosState>(
+                            builder: (context, state) {
+                              if (state is AlumnosLoading || state is AlumnosInitial) {
+                                return const Center(child: CircularProgressIndicator());
+                              }
+                              if (state is AlumnosError) {
+                                return Text('Error al cargar alumnos', style: TextStyle(color: kaliColors.error));
+                              }
+                              if (state is AlumnosLoaded) {
+                                return ValueListenableBuilder<TextEditingValue>(
+                                  valueListenable: _searchController,
+                                  builder: (context, searchValue, _) {
+                                    final query = searchValue.text.toLowerCase();
+                                    final filteredStudents = state.students.where((s) => 
+                                      s.name.toLowerCase().contains(query) || 
+                                      s.email.toLowerCase().contains(query)
+                                    ).toList();
+                                    
+                                    return Container(
+                                      height: 200,
+                                      decoration: BoxDecoration(
+                                        color: kaliColors.sand.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: kaliColors.espresso.withValues(alpha: 0.1)),
+                                      ),
+                                      child: filteredStudents.isEmpty
+                                          ? Center(
+                                              child: Text(
+                                                'No se encontraron alumnos.',
+                                                style: kaliColors.caption(kaliColors.espresso.withValues(alpha: 0.5)),
+                                              ),
+                                            )
+                                          : ListView.builder(
+                                              itemCount: filteredStudents.length,
+                                              itemBuilder: (context, index) {
+                                                final student = filteredStudents[index];
+                                                final isSelected = _selectedStudentIds.contains(student.id);
+                                                return CheckboxListTile(
+                                                  value: isSelected,
+                                                  activeColor: kaliColors.espresso,
+                                                  title: Text(student.name, style: kaliColors.body(kaliColors.espresso, weight: FontWeight.w500)),
+                                                  subtitle: Text(student.email, style: kaliColors.caption(kaliColors.espresso.withValues(alpha: 0.6))),
+                                                  onChanged: (bool? value) {
+                                                    setState(() {
+                                                      if (value == true) {
+                                                        _selectedStudentIds.add(student.id);
+                                                      } else {
+                                                        _selectedStudentIds.remove(student.id);
+                                                      }
+                                                    });
+                                                  },
+                                                );
+                                              },
+                                            ),
+                                    );
+                                  },
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
                           const SizedBox(height: 8),
                           Text(
-                            '*(Mock)* Aquí irá un selector múltiple de alumnos.',
-                            style: kaliColors.caption(
-                                kaliColors.espresso.withValues(alpha: 0.5)),
+                            'Alumnos seleccionados: ${_selectedStudentIds.length}',
+                            style: kaliColors.caption(kaliColors.espresso.withValues(alpha: 0.7)),
                           ),
                         ],
                         
@@ -274,13 +352,42 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
                               style: TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.bold),
                             ),
-                            onPressed: () {
+                            onPressed: () async {
                               if (_formKey.currentState!.validate()) {
-                                // TODO: Implementar lógica de envío
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Notificación de prueba enviada (UI Only)')),
-                                );
+                                if (_targetType == 'selected' && _selectedStudentIds.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text('Por favor, selecciona al menos un alumno.',
+                                            style: TextStyle(color: kaliColors.warmWhite)),
+                                        backgroundColor: kaliColors.error),
+                                  );
+                                  return;
+                                }
+
+                                final title = _tituloController.text.trim();
+                                final message = _mensajeController.text.trim();
+                                final cubit = context.read<NotificationsCubit>();
+
+                                if (_targetType == 'all') {
+                                  await cubit.sendNotification(title: title, message: message);
+                                } else {
+                                  for (final id in _selectedStudentIds) {
+                                    await cubit.sendNotification(
+                                        title: title, message: message, targetUserId: id);
+                                  }
+                                }
+
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('¡Notificación enviada con éxito!')),
+                                  );
+                                  _tituloController.clear();
+                                  _mensajeController.clear();
+                                  setState(() {
+                                    _selectedStudentIds.clear();
+                                    _searchController.clear();
+                                  });
+                                }
                               }
                             },
                           ),
