@@ -369,12 +369,25 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
                                 final cubit = context.read<NotificationsCubit>();
 
                                 if (_targetType == 'all') {
-                                  await cubit.sendNotification(title: title, message: message);
-                                } else {
-                                  for (final id in _selectedStudentIds) {
-                                    await cubit.sendNotification(
-                                        title: title, message: message, targetUserId: id);
+                                  final alumnosState = context.read<AlumnosBloc>().state;
+                                  final allIds = alumnosState is AlumnosLoaded 
+                                      ? alumnosState.students.map((s) => s.id).toList() 
+                                      : <String>[];
+                                      
+                                  if (allIds.isNotEmpty) {
+                                    await cubit.sendNotifications(
+                                        title: title, message: message, targetUserIds: allIds);
+                                  } else {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('No hay alumnos registrados.', style: TextStyle(color: kaliColors.warmWhite)), backgroundColor: kaliColors.error),
+                                      );
+                                    }
+                                    return;
                                   }
+                                } else {
+                                  await cubit.sendNotifications(
+                                      title: title, message: message, targetUserIds: _selectedStudentIds.toList());
                                 }
 
                                 if (context.mounted) {

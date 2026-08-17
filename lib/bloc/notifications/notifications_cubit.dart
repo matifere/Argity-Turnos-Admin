@@ -126,21 +126,22 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     emit(state.copyWith(notifications: updatedList));
   }
 
-  Future<void> sendNotification({
+  Future<void> sendNotifications({
     required String title,
     required String message,
-    String? targetUserId,
+    required List<String> targetUserIds,
   }) async {
-    if (_channel == null) return;
+    if (targetUserIds.isEmpty) return;
     try {
-      await _channel!.sendBroadcastMessage(
-        event: 'new_notification',
-        payload: {
-          'title': title,
-          'message': message,
-          if (targetUserId != null) 'user_id': targetUserId,
-        },
-      );
+      final rows = targetUserIds.map((id) => {
+        'title': title,
+        'body': message,
+        'user_id': id,
+        'type': 'general'
+      }).toList();
+
+      // Insertar en la tabla real de la base de datos (esto dispara el webhook de Push y el evento de realtime)
+      await Supabase.instance.client.from('notifications').insert(rows);
     } catch (e) {
       // Ignore or log error
     }
