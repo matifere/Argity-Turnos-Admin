@@ -226,7 +226,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
           _subscriptionChecked = true;
         });
       }
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('CRASH IN _checkProfile: $e\n$stack');
+      if (e is PostgrestException && e.code == '401') {
+        // Token inválido (ej. base de datos reiniciada o token revocado). 
+        // Cerramos sesión para que el AuthState listener nos lleve al LoginScreen.
+        await Supabase.instance.client.auth.signOut();
+        return;
+      }
       // Fail-closed: ante cualquier error, marcar como inactivo.
       ProfileCache.updateIsActive(false);
       if (mounted) {
