@@ -126,25 +126,32 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     emit(state.copyWith(notifications: updatedList));
   }
 
-  Future<void> sendNotifications({
+  /// Crea una notificacion por alumno en la tabla `notifications`. Cada fila
+  /// dispara el push a Android/iOS (trigger `trg_send_push`) y le aparece al
+  /// alumno en la campanita de su app.
+  ///
+  /// Devuelve a cuantos alumnos se les envio. El error se propaga a proposito:
+  /// antes se lo tragaba un catch vacio y la pantalla cantaba exito igual, asi
+  /// que un rechazo de RLS pasaba por envio hecho.
+  Future<int> sendNotifications({
     required String title,
     required String message,
     required List<String> targetUserIds,
   }) async {
-    if (targetUserIds.isEmpty) return;
-    try {
-      final rows = targetUserIds.map((id) => {
-        'title': title,
-        'body': message,
-        'user_id': id,
-        'type': 'general'
-      }).toList();
+    final ids = targetUserIds.toSet().toList();
+    if (ids.isEmpty) return 0;
 
-      // Insertar en la tabla real de la base de datos (esto dispara el webhook de Push y el evento de realtime)
-      await Supabase.instance.client.from('notifications').insert(rows);
-    } catch (e) {
-      // Ignore or log error
-    }
+    final rows = ids
+        .map((id) => {
+              'title': title,
+              'body': message,
+              'user_id': id,
+              'type': 'general',
+            })
+        .toList();
+
+    await Supabase.instance.client.from('notifications').insert(rows);
+    return rows.length;
   }
 
   void clearAll() {

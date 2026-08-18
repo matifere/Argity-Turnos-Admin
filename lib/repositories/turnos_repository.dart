@@ -344,6 +344,54 @@ class TurnosRepository {
     await _client
         .from('reservations')
         .upsert(inserts, onConflict: 'user_id,session_id');
+
+    await _notifyAssignment(
+      userId: userId,
+      session: session,
+      sessionCount: inserts.length,
+    );
+  }
+
+  /// Avisa al alumno que lo anotamos en la clase. Es una fila en `notifications`
+  /// (una sola, aunque la inscripcion sea recurrente), que ademas dispara el
+  /// push a Android/iOS via el trigger `trg_send_push`.
+  ///
+  /// Nunca rompe la inscripcion: si el aviso falla, la reserva ya quedo hecha.
+  Future<void> _notifyAssignment({
+    required String userId,
+    required ClassSession session,
+    required int sessionCount,
+  }) async {
+    // Anotar en una clase que ya paso (correccion de asistencia, por ejemplo)
+    // no amerita avisarle a nadie.
+    final today = DateTime.now();
+    if (session.date
+        .isBefore(DateTime(today.year, today.month, today.day))) {
+      return;
+    }
+
+    final fecha = DateFormat('dd/MM').format(session.date);
+    final hora = session.startTime.length >= 5
+        ? session.startTime.substring(0, 5)
+        : session.startTime;
+
+    final body = sessionCount > 1
+        ? 'Te anotamos en ${session.name}: $sessionCount clases, '
+            'la primera el $fecha a las $hora.'
+        : 'Te anotamos en ${session.name} del $fecha a las $hora.';
+
+    try {
+      await _client.from('notifications').insert({
+        'user_id': userId,
+        'title': sessionCount > 1
+            ? 'Te anotamos en tus clases'
+            : 'Te anotamos en una clase',
+        'body': body,
+        'type': 'reserva',
+      });
+    } catch (_) {
+      // Aviso no critico: la inscripcion ya se guardo.
+    }
   }
 
   Future<void> removeStudent(String reservationId) async {

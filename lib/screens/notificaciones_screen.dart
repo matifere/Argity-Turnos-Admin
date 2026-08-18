@@ -20,6 +20,7 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
   
   String _targetType = 'all'; // 'all' or 'selected'
   final Set<String> _selectedStudentIds = {};
+  bool _sending = false;
   
   @override
   void initState() {
@@ -37,6 +38,77 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
     _mensajeController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Destinatarios del envio: los alumnos tildados, o todos los activos de la
+  /// institucion. A los dados de baja no se les manda nada.
+  List<String> _resolveTargets() {
+    if (_targetType == 'selected') return _selectedStudentIds.toList();
+
+    final alumnosState = context.read<AlumnosBloc>().state;
+    if (alumnosState is! AlumnosLoaded) return const [];
+    return alumnosState.students
+        .where((s) => s.isActive)
+        .map((s) => s.id)
+        .toList();
+  }
+
+  void _showSnack(String message, {bool isError = false}) {
+    if (!mounted) return;
+    final kaliColors = Theme.of(context).extension<KaliColorsExtension>()!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message,
+            style: TextStyle(color: kaliColors.warmWhite)),
+        backgroundColor: isError ? kaliColors.error : null,
+      ),
+    );
+  }
+
+  /// Manda el aviso: una notificacion por alumno, que ademas le llega como push
+  /// al telefono. Si el insert falla (RLS, red) se avisa el error en vez de
+  /// dar el envio por hecho.
+  Future<void> _enviarNotificacion() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_targetType == 'selected' && _selectedStudentIds.isEmpty) {
+      _showSnack('Por favor, selecciona al menos un alumno.', isError: true);
+      return;
+    }
+
+    final targets = _resolveTargets();
+    if (targets.isEmpty) {
+      _showSnack(
+        _targetType == 'all'
+            ? 'No hay alumnos activos a los que enviar.'
+            : 'No hay alumnos seleccionados.',
+        isError: true,
+      );
+      return;
+    }
+
+    final cubit = context.read<NotificationsCubit>();
+    setState(() => _sending = true);
+    try {
+      final enviadas = await cubit.sendNotifications(
+        title: _tituloController.text.trim(),
+        message: _mensajeController.text.trim(),
+        targetUserIds: targets,
+      );
+      if (!mounted) return;
+      _showSnack(enviadas == 1
+          ? 'Notificación enviada a 1 alumno.'
+          : 'Notificación enviada a $enviadas alumnos.');
+      _tituloController.clear();
+      _mensajeController.clear();
+      setState(() {
+        _selectedStudentIds.clear();
+        _searchController.clear();
+      });
+    } catch (e) {
+      _showSnack('No se pudo enviar la notificación: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   @override
@@ -346,63 +418,22 @@ class _NotificacionesScreenState extends State<NotificacionesScreen> {
                               ),
                               elevation: 0,
                             ),
-                            icon: const Icon(Icons.send_rounded, size: 20),
-                            label: const Text(
-                              'Enviar Notificación',
-                              style: TextStyle(
+                            icon: _sending
+                                ? SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: kaliColors.warmWhite,
+                                    ),
+                                  )
+                                : const Icon(Icons.send_rounded, size: 20),
+                            label: Text(
+                              _sending ? 'Enviando...' : 'Enviar Notificación',
+                              style: const TextStyle(
                                   fontSize: 16, fontWeight: FontWeight.bold),
                             ),
-                            onPressed: () async {
-                              if (_formKey.currentState!.validate()) {
-                                if (_targetType == 'selected' && _selectedStudentIds.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text('Por favor, selecciona al menos un alumno.',
-                                            style: TextStyle(color: kaliColors.warmWhite)),
-                                        backgroundColor: kaliColors.error),
-                                  );
-                                  return;
-                                }
-
-                                final title = _tituloController.text.trim();
-                                final message = _mensajeController.text.trim();
-                                final cubit = context.read<NotificationsCubit>();
-
-                                if (_targetType == 'all') {
-                                  final alumnosState = context.read<AlumnosBloc>().state;
-                                  final allIds = alumnosState is AlumnosLoaded 
-                                      ? alumnosState.students.map((s) => s.id).toList() 
-                                      : <String>[];
-                                      
-                                  if (allIds.isNotEmpty) {
-                                    await cubit.sendNotifications(
-                                        title: title, message: message, targetUserIds: allIds);
-                                  } else {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('No hay alumnos registrados.', style: TextStyle(color: kaliColors.warmWhite)), backgroundColor: kaliColors.error),
-                                      );
-                                    }
-                                    return;
-                                  }
-                                } else {
-                                  await cubit.sendNotifications(
-                                      title: title, message: message, targetUserIds: _selectedStudentIds.toList());
-                                }
-
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('¡Notificación enviada con éxito!')),
-                                  );
-                                  _tituloController.clear();
-                                  _mensajeController.clear();
-                                  setState(() {
-                                    _selectedStudentIds.clear();
-                                    _searchController.clear();
-                                  });
-                                }
-                              }
-                            },
+                            onPressed: _sending ? null : _enviarNotificacion,
                           ),
                         ),
                       ],
