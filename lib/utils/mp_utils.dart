@@ -6,3 +6,8 @@ String getMpRedirectUri() {
   final cleanUrl = supabaseUrl.endsWith('/') ? supabaseUrl.substring(0, supabaseUrl.length - 1) : supabaseUrl;
   return '$cleanUrl/functions/v1/mp-auth-callback';
 }
+
+String getMpClientId() {
+  const buildClientId = String.fromEnvironment('MP_CLIENT_ID');
+  return buildClientId.isNotEmpty ? buildClientId : (dotenv.env['MP_CLIENT_ID'] ?? '');
+}

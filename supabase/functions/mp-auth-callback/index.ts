@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
       throw new Error("No se proporcionó el código de autorización");
     }
 
-    const MP_CLIENT_ID = Deno.env.get("MP_CLIENT_ID") || "5257839397807870";
+    const MP_CLIENT_ID = Deno.env.get("MP_CLIENT_ID");
     const MP_CLIENT_SECRET = Deno.env.get("MP_CLIENT_SECRET") || Deno.env.get("MP_ACCESS_TOKEN");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");

@@ -16,6 +16,7 @@ cat <<EOF > .env
 URL='${URL}'
 ANON='${ANON}'
 VAPID_PUBLIC_KEY='${VAPID_PUBLIC_KEY}'
+MP_CLIENT_ID='${MP_CLIENT_ID}'
 EOF
 
 # 5. Compilar la aplicación para producción

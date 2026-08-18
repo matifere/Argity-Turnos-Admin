@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:argrity/utils/oauth_helper.dart';
 import 'package:argrity/utils/mp_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -31,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleMercadoPagoLogin(BuildContext context) async {
-    const String clientId = '5257839397807870';
+    final String clientId = getMpClientId();
     final String redirectUri = getMpRedirectUri();
     
     if (kIsWeb) {

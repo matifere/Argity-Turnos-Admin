@@ -10,6 +10,7 @@ import 'package:argrity/theme/kali_colors_extension.dart';
 import 'package:argrity/widgets/common/kali_icon_button.dart';
 import 'package:argrity/widgets/pagos/plan_form_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Directorio/Tabla de planes de pago.
 class PlansTable extends StatefulWidget {
@@ -74,7 +75,7 @@ class _PlansTableState extends State<PlansTable> {
   }
 
   Future<void> _handleMercadoPagoLink(BuildContext context) async {
-    const String clientId = '5257839397807870';
+    final String clientId = getMpClientId();
     final String redirectUri = getMpRedirectUri();
     
     if (kIsWeb) {

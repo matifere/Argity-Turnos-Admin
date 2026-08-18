@@ -9,6 +9,7 @@ import 'package:argrity/utils/oauth_helper.dart';
 import 'package:argrity/utils/mp_utils.dart';
 import 'package:argrity/widgets/kali_text_field.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -108,7 +109,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _handleMercadoPagoRegister(BuildContext context) async {
-    const String clientId = '5257839397807870';
+    final String clientId = getMpClientId();
     final String redirectUri = getMpRedirectUri();
 
     if (kIsWeb) {

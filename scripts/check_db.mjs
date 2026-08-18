@@ -1,7 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const url = 'https://tmfcnvtjzmtpqhzvfxos.supabase.co';
-const key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtZmNudnRqem10cHFoenZmeG9zIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Mzg2ODY2NiwiZXhwIjoyMDg5NDQ0NjY2fQ.ZJJXQ0Nd3UZoBQYovlXgAzUcaIa7eW5hTuA_hXiWcmA';
+const url = Deno.env.get("SUPABASE_URL") || 'https://tmfcnvtjzmtpqhzvfxos.supabase.co';
+const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+if (!key) {
+  console.error("ERROR: Falta la variable de entorno SUPABASE_SERVICE_ROLE_KEY");
+  Deno.exit(1);
+}
 
 const supabase = createClient(url, key);
 
