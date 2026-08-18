@@ -74,10 +74,16 @@ class TurnoStudentAssigned extends TurnosEvent {
   final ClassSession session;
   final EnrollmentType enrollmentType;
 
+  /// Clases futuras de la serie ya resueltas por la UI (incluyen las que
+  /// superan el plan cuando el admin eligió forzarlas). Si es null, el
+  /// repositorio proyecta respetando el cupo mensual del plan.
+  final List<String>? projectedSessionIds;
+
   TurnoStudentAssigned({
     required this.userId,
     required this.session,
     this.enrollmentType = EnrollmentType.single,
+    this.projectedSessionIds,
   });
 }
 

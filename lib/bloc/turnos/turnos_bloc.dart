@@ -17,6 +17,10 @@ class TurnosBloc extends Bloc<TurnosEvent, TurnosState> {
   RealtimeChannel? _realtimeChannel;
   Timer? _realtimeDebounce;
 
+  /// Expuesto para que la UI pueda pre-calcular una proyección recurrente
+  /// (ver [TurnosRepository.planRecurrentEnrollment]) antes de despachar.
+  TurnosRepository get repository => _repository;
+
   TurnosBloc({ActivityBloc? activityBloc, required TurnosRepository repository})
       : _activityBloc = activityBloc,
         _repository = repository,
@@ -332,6 +336,7 @@ class TurnosBloc extends Bloc<TurnosEvent, TurnosState> {
         userId: event.userId,
         session: event.session,
         enrollmentType: event.enrollmentType,
+        projectedSessionIds: event.projectedSessionIds,
       );
       _activityBloc?.add(ActivityLogged(ActivityEntry(
         title: 'Alumno inscripto a turno',

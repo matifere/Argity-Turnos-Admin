@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:argrity/bloc/turnos/turnos_bloc.dart';
 import 'package:argrity/models/class_session.dart';
 import 'package:argrity/theme/kali_colors_extension.dart';
+import 'package:argrity/repositories/turnos_repository.dart';
 import 'package:argrity/widgets/common/avatar_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -23,6 +24,7 @@ class _AssignStudentDialogState extends State<AssignStudentDialog> {
   String? _error;
   EnrollmentType _enrollmentType = EnrollmentType.planValidity;
   bool _canProject = false;
+  bool _isAssigning = false;
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _selectedIds = {};
 
@@ -232,24 +234,140 @@ class _AssignStudentDialogState extends State<AssignStudentDialog> {
     setState(() => _selectedIds.add(userId));
   }
 
-  void _assignSelected() {
-    if (_selectedIds.isEmpty) return;
-    for (final userId in _selectedIds) {
-      context.read<TurnosBloc>().add(TurnoStudentAssigned(
+  /// Calcula la proyección recurrente de cada alumno seleccionado. Si alguna
+  /// clase futura queda fuera del cupo mensual de su plan, se lo avisa al admin
+  /// y lo deja decidir si la fuerza igual (el alumno nunca puede: lo frena el
+  /// RPC del servidor).
+  Future<void> _assignSelected() async {
+    if (_selectedIds.isEmpty || _isAssigning) return;
+
+    final bloc = context.read<TurnosBloc>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final nameById = {
+      for (final p in _profiles) p['id'] as String: (p['full_name'] ?? 'Alumno') as String
+    };
+
+    final plans = <String, RecurrentEnrollmentPlan>{};
+    if (_enrollmentType != EnrollmentType.single) {
+      setState(() => _isAssigning = true);
+      try {
+        for (final userId in _selectedIds) {
+          plans[userId] = await bloc.repository.planRecurrentEnrollment(
             userId: userId,
             session: widget.session,
-            enrollmentType: _enrollmentType,
-          ));
+          );
+        }
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isAssigning = false);
+        messenger.showSnackBar(
+          SnackBar(content: Text('No se pudo calcular la recurrencia: $e')),
+        );
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _isAssigning = false);
     }
-    Navigator.of(context).pop();
+
+    var forceOverPlan = false;
+    final overPlan = plans.entries.where((e) => e.value.hasOverPlan).toList();
+    if (overPlan.isNotEmpty) {
+      final decision = await _askForceOverPlan(overPlan, nameById);
+      if (decision == null || !mounted) return;
+      forceOverPlan = decision;
+    }
+
+    var totalClasses = 0;
+    for (final userId in _selectedIds) {
+      final plan = plans[userId];
+      final ids = plan == null
+          ? null
+          : <String>[...plan.withinPlan, if (forceOverPlan) ...plan.overPlan];
+      totalClasses += 1 + (ids?.length ?? 0);
+
+      bloc.add(TurnoStudentAssigned(
+        userId: userId,
+        session: widget.session,
+        enrollmentType: _enrollmentType,
+        projectedSessionIds: ids,
+      ));
+    }
+
+    navigator.pop();
     final count = _selectedIds.length;
-    ScaffoldMessenger.of(context).showSnackBar(
+    final base = count == 1
+        ? 'Alumno inscripto correctamente'
+        : 'Se inscribieron $count alumnos correctamente';
+    messenger.showSnackBar(
       SnackBar(
-        content: Text(
-          count == 1
-              ? 'Alumno inscripto correctamente'
-              : 'Se inscribieron $count alumnos correctamente',
+        content: Text(_enrollmentType == EnrollmentType.single
+            ? base
+            : '$base ($totalClasses ${totalClasses == 1 ? 'clase' : 'clases'} en total)'),
+      ),
+    );
+  }
+
+  /// `true` = inscribir también las clases que superan el plan, `false` = solo
+  /// las que entran, `null` = el admin canceló.
+  Future<bool?> _askForceOverPlan(
+    List<MapEntry<String, RecurrentEnrollmentPlan>> overPlan,
+    Map<String, String> nameById,
+  ) {
+    final kaliColors = Theme.of(context).extension<KaliColorsExtension>()!;
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('La recurrencia supera el plan',
+            style: kaliColors.heading(kaliColors.espresso, size: 20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'El cupo mensual del plan no alcanza para todas las clases de la serie:',
+              style: kaliColors.body(kaliColors.espresso),
+            ),
+            const SizedBox(height: 12),
+            ...overPlan.map((e) {
+              final plan = e.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '• ${nameById[e.key] ?? 'Alumno'}: entran ${plan.withinPlan.length} de ${plan.total} clases '
+                  '(${plan.overPlan.length} fuera del plan)',
+                  style: kaliColors.body(kaliColors.espresso, size: 13),
+                ),
+              );
+            }),
+            const SizedBox(height: 12),
+            Text(
+              'Como admin podés inscribir igual en todas; el alumno no puede pasarse por su cuenta.',
+              style:
+                  kaliColors.body(kaliColors.espresso.withValues(alpha: 0.6), size: 13),
+            ),
+          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: Text('Cancelar',
+                style:
+                    kaliColors.body(kaliColors.espresso.withValues(alpha: 0.6))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Solo las que entran',
+                style: kaliColors.body(kaliColors.espresso)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Inscribir en todas',
+                style: kaliColors.body(kaliColors.espresso,
+                    weight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
   }
@@ -468,7 +586,9 @@ class _AssignStudentDialogState extends State<AssignStudentDialog> {
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: _selectedIds.isEmpty ? null : _assignSelected,
+                      onPressed: (_selectedIds.isEmpty || _isAssigning)
+                          ? null
+                          : _assignSelected,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: kaliColors.espresso,
                         foregroundColor: kaliColors.warmWhite,
@@ -482,12 +602,20 @@ class _AssignStudentDialogState extends State<AssignStudentDialog> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        _selectedIds.isEmpty
-                            ? 'Inscribir'
-                            : 'Inscribir (${_selectedIds.length})',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
+                      child: _isAssigning
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : Text(
+                              _selectedIds.isEmpty
+                                  ? 'Inscribir'
+                                  : 'Inscribir (${_selectedIds.length})',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
                     ),
                   ],
                 ),

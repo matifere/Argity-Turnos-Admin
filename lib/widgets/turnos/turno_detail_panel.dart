@@ -204,7 +204,9 @@ class TurnoDetailPanel extends StatelessWidget {
                 style: kaliColors
                     .label(kaliColors.espresso.withValues(alpha: 0.65)),
               ),
-              if (!turno.isFull && _canModifyStudents)
+              // Sin gate por cupo: el admin puede pasarse de capacidad a
+              // propósito. Al alumno lo frena el RPC del lado del servidor.
+              if (_canModifyStudents)
                 InkWell(
                   onTap: () {
                     showDialog(
