@@ -23,6 +23,7 @@ jobs:
           cat << 'EOF' > .env
           ${{ secrets.ENV_FILE }}
           EOF
+        shell: bash
 
       - name: Get dependencies
         run: flutter pub get
@@ -56,6 +57,7 @@ jobs:
           cat << 'EOF' > .env
           ${{ secrets.ENV_FILE }}
           EOF
+        shell: bash
 
       - name: Get dependencies
         run: flutter pub get
