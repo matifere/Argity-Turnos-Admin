@@ -2,7 +2,7 @@
 ; --------------------------------------------------
 
 #define MyAppName "ArgityTurnos"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "ArgityTurnos"
 #define MyAppExeName "ArgityTurnos.exe"
 #define MyAppIcon "windows\runner\resources\app_icon.ico"
