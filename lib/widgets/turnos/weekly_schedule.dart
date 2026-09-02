@@ -24,9 +24,9 @@ class WeeklySchedule extends StatelessWidget {
     required this.onTurnoSelected,
   });
 
-  // Rango horario visible en la grilla.
-  int get _startHour => 7;
-  int get _endHour => 22;
+  // Rango horario visible en la grilla: 06:00 a 23:00.
+  int get _startHour => 6;
+  int get _endHour => 23;
 
   int get _totalHours {
     final start = _startHour;
