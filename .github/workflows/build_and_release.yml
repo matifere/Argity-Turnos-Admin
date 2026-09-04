@@ -80,6 +80,8 @@ jobs:
     name: Publish to Argity Web and GitHub Releases
     needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout Flutter code
         uses: actions/checkout@v4
