@@ -142,6 +142,6 @@ jobs:
           
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add public/version.json
-          git commit -m "chore: Actualización automática del version.json a la versión ${{ env.VERSION }}" || true
+          git add public/version.json public/update.json
+          git commit -m "chore: Actualización automática a la versión ${{ env.VERSION }}" || true
           git push
