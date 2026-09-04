@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:argrity/theme/kali_colors_extension.dart';
+import 'package:argrity/bloc/turnos/turnos_bloc.dart';
 import 'package:intl/intl.dart';
 
 /// Header del calendario semanal con título, rango de fechas y filtros.
@@ -17,6 +18,10 @@ class ScheduleHeader extends StatelessWidget {
   final List<String> availableInstructors;
   final List<String> availableRooms;
   final void Function(String? instructor, String? room) onFilterChanged;
+  
+  // Novedad: vista del calendario
+  final CalendarView viewMode;
+  final ValueChanged<CalendarView> onViewModeChanged;
 
   const ScheduleHeader({
     super.key,
@@ -32,11 +37,27 @@ class ScheduleHeader extends StatelessWidget {
     required this.availableInstructors,
     required this.availableRooms,
     required this.onFilterChanged,
+    this.viewMode = CalendarView.weekly,
+    required this.onViewModeChanged,
   });
 
   String get _weekRange {
-    final endOfWeek = currentWeekStart.add(const Duration(days: 6));
     const formatStr = "dd MMM";
+    if (viewMode == CalendarView.monthly) {
+      // mostramos "Mes Año", la currentWeekStart puede ser cualquier dia del mes,
+      // pero si navegamos apuntamos al dia 1. Si no, usamos el mes actual de currentWeekStart, 
+      // pero ojo, currentWeekStart siempre es Lunes, a veces el 1ro cae martes y currentWeekStart es del mes pasado.
+      // Mejor basarnos en (currentWeekStart + 3 dias) que seguro cae en el mes foco
+      final foco = currentWeekStart.add(const Duration(days: 3));
+      final month = DateFormat('MMMM', 'es_ES').format(foco);
+      return '${month[0].toUpperCase()}${month.substring(1)} ${foco.year}';
+    }
+    if (viewMode == CalendarView.yearly) {
+      final foco = currentWeekStart.add(const Duration(days: 3));
+      return '${foco.year}';
+    }
+    // viewMode == CalendarView.weekly
+    final endOfWeek = currentWeekStart.add(const Duration(days: 6));
     return '${DateFormat(formatStr, 'es_ES').format(currentWeekStart)} — ${DateFormat(formatStr, 'es_ES').format(endOfWeek)}, ${endOfWeek.year}';
   }
 
@@ -98,7 +119,11 @@ class ScheduleHeader extends StatelessWidget {
             runSpacing: 12,
             children: [
               Text(
-                'Calendario Semanal',
+                viewMode == CalendarView.monthly
+                    ? 'Calendario Mensual'
+                    : viewMode == CalendarView.yearly
+                        ? 'Calendario Anual'
+                        : 'Calendario Semanal',
                 style: kaliColors
                     .heading(kaliColors.espresso, size: 40)
                     .copyWith(fontWeight: FontWeight.w600),
@@ -218,6 +243,7 @@ class ScheduleHeader extends StatelessWidget {
         ? const EdgeInsets.symmetric(horizontal: 14, vertical: 10)
         : const EdgeInsets.symmetric(horizontal: 20, vertical: 16);
     return [
+      _buildViewToggle(kaliColors: kaliColors, compact: compact),
       if (onAddHoliday != null)
         OutlinedButton.icon(
           onPressed: onAddHoliday,
@@ -254,6 +280,36 @@ class ScheduleHeader extends StatelessWidget {
           ),
         ),
     ];
+  }
+
+  Widget _buildViewToggle({required KaliColorsExtension kaliColors, required bool compact}) {
+    return SegmentedButton<CalendarView>(
+      segments: const [
+        ButtonSegment(
+          value: CalendarView.weekly,
+          label: Text('Semana'),
+        ),
+        ButtonSegment(
+          value: CalendarView.monthly,
+          label: Text('Mes'),
+        ),
+        ButtonSegment(
+          value: CalendarView.yearly,
+          label: Text('Año'),
+        ),
+      ],
+      selected: {viewMode},
+      onSelectionChanged: (Set<CalendarView> newSelection) {
+        onViewModeChanged(newSelection.first);
+      },
+      showSelectedIcon: false,
+      style: SegmentedButton.styleFrom(
+        foregroundColor: kaliColors.espresso,
+        selectedForegroundColor: kaliColors.warmWhite,
+        selectedBackgroundColor: kaliColors.espresso,
+        textStyle: kaliColors.body(kaliColors.espresso, weight: FontWeight.w600, size: 13),
+      ),
+    );
   }
 }
 

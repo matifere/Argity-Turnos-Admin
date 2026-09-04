@@ -14,6 +14,12 @@ class TurnosWeekChanged extends TurnosEvent {
   TurnosWeekChanged(this.newWeekStart);
 }
 
+/// El usuario cambió la vista del calendario (semanal, mensual, anual).
+class TurnosViewModeChanged extends TurnosEvent {
+  final CalendarView viewMode;
+  TurnosViewModeChanged(this.viewMode);
+}
+
 class TurnoCreated extends TurnosEvent {
   final String name;
   final String? description;

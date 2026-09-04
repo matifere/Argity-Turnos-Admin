@@ -1,5 +1,7 @@
 part of 'turnos_bloc.dart';
 
+enum CalendarView { weekly, monthly, yearly }
+
 /// Estado del calendario de turnos.
 class TurnosState {
   final List<ClassSession> sessions;
@@ -19,6 +21,8 @@ class TurnosState {
   final String? selectedInstructor;
   final String? selectedRoom;
 
+  final CalendarView viewMode;
+
   TurnosState({
     this.sessions = const [],
     required this.currentWeekStart,
@@ -28,6 +32,7 @@ class TurnosState {
     this.selectedTurno,
     this.selectedInstructor,
     this.selectedRoom,
+    this.viewMode = CalendarView.weekly,
   });
 
   bool get hasSelection => selectedTurno != null;
@@ -74,6 +79,7 @@ class TurnosState {
     bool clearSelection = false,
     String? Function()? selectedInstructor,
     String? Function()? selectedRoom,
+    CalendarView? viewMode,
   }) {
     return TurnosState(
       sessions: sessions ?? this.sessions,
@@ -87,6 +93,7 @@ class TurnosState {
           ? selectedInstructor()
           : this.selectedInstructor,
       selectedRoom: selectedRoom != null ? selectedRoom() : this.selectedRoom,
+      viewMode: viewMode ?? this.viewMode,
     );
   }
 }

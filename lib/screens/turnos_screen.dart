@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:argrity/bloc/turnos/turnos_bloc.dart';
 import 'package:argrity/widgets/turnos/schedule_header.dart';
 import 'package:argrity/widgets/turnos/weekly_schedule.dart';
+import 'package:argrity/widgets/turnos/monthly_schedule.dart';
+import 'package:argrity/widgets/turnos/yearly_schedule.dart';
 import 'package:argrity/widgets/turnos/schedule_bottom_bar.dart';
 import 'package:argrity/widgets/turnos/turno_detail_panel.dart';
 import 'package:argrity/widgets/turnos/create_class_group_dialog.dart';
@@ -121,6 +123,10 @@ class _TurnosScreenState extends State<TurnosScreen> {
                             availableRooms: state.availableRooms,
                             showInstructorFilter: !_isProfesor,
                             showDropdownFilters: !_isProfesor,
+                            viewMode: state.viewMode,
+                            onViewModeChanged: (newMode) {
+                              context.read<TurnosBloc>().add(TurnosViewModeChanged(newMode));
+                            },
                             onFilterChanged: (instructor, room) {
                               context.read<TurnosBloc>().add(
                                     TurnosFilterChanged(
@@ -130,15 +136,29 @@ class _TurnosScreenState extends State<TurnosScreen> {
                                   );
                             },
                             onPreviousWeek: () {
-                              final prev = state.currentWeekStart
-                                  .subtract(const Duration(days: 7));
+                              final focus = state.currentWeekStart.add(const Duration(days: 3));
+                              DateTime prev;
+                              if (state.viewMode == CalendarView.monthly) {
+                                prev = DateTime(focus.year, focus.month - 1, 15);
+                              } else if (state.viewMode == CalendarView.yearly) {
+                                prev = DateTime(focus.year - 1, focus.month, 15);
+                              } else {
+                                prev = state.currentWeekStart.subtract(const Duration(days: 7));
+                              }
                               context
                                   .read<TurnosBloc>()
                                   .add(TurnosWeekChanged(prev));
                             },
                             onNextWeek: () {
-                              final next = state.currentWeekStart
-                                  .add(const Duration(days: 7));
+                              final focus = state.currentWeekStart.add(const Duration(days: 3));
+                              DateTime next;
+                              if (state.viewMode == CalendarView.monthly) {
+                                next = DateTime(focus.year, focus.month + 1, 15);
+                              } else if (state.viewMode == CalendarView.yearly) {
+                                next = DateTime(focus.year + 1, focus.month, 15);
+                              } else {
+                                next = state.currentWeekStart.add(const Duration(days: 7));
+                              }
                               context
                                   .read<TurnosBloc>()
                                   .add(TurnosWeekChanged(next));
@@ -176,25 +196,12 @@ class _TurnosScreenState extends State<TurnosScreen> {
                                       : Column(
                                           children: [
                                             Expanded(
-                                              child: WeeklySchedule(
-                                                currentWeekStart:
-                                                    state.currentWeekStart,
-                                                sessions:
-                                                    state.filteredSessions,
-                                                selectedTurno:
-                                                    state.selectedTurno,
-                                                onTurnoSelected: (turno) {
-                                                  context
-                                                      .read<TurnosBloc>()
-                                                      .add(
-                                                        TurnoSelected(turno),
-                                                      );
-                                                },
+                                              child: _buildCalendarView(state),
+                                            ),
+                                            if (state.viewMode == CalendarView.weekly)
+                                              ScheduleBottomBar(
+                                                sessions: state.filteredSessions,
                                               ),
-                                            ),
-                                            ScheduleBottomBar(
-                                              sessions: state.filteredSessions,
-                                            ),
                                           ],
                                         ),
                             ),
@@ -228,6 +235,38 @@ class _TurnosScreenState extends State<TurnosScreen> {
             ),
           ],
         );
+      },
+    );
+  }
+
+  Widget _buildCalendarView(TurnosState state) {
+    if (state.viewMode == CalendarView.monthly) {
+      return MonthlySchedule(
+        currentWeekStart: state.currentWeekStart,
+        sessions: state.filteredSessions,
+        selectedTurno: state.selectedTurno,
+        onTurnoSelected: (turno) {
+          context.read<TurnosBloc>().add(TurnoSelected(turno));
+        },
+      );
+    } else if (state.viewMode == CalendarView.yearly) {
+      return YearlySchedule(
+        currentWeekStart: state.currentWeekStart,
+        onMonthSelected: (monthDate) {
+          // Switch to monthly view and focus on the selected month
+          context.read<TurnosBloc>().add(TurnosWeekChanged(monthDate));
+          context.read<TurnosBloc>().add(TurnosViewModeChanged(CalendarView.monthly));
+        },
+      );
+    }
+    
+    // Default to weekly
+    return WeeklySchedule(
+      currentWeekStart: state.currentWeekStart,
+      sessions: state.filteredSessions,
+      selectedTurno: state.selectedTurno,
+      onTurnoSelected: (turno) {
+        context.read<TurnosBloc>().add(TurnoSelected(turno));
       },
     );
   }

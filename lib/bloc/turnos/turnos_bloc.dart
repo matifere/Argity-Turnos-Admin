@@ -27,6 +27,7 @@ class TurnosBloc extends Bloc<TurnosEvent, TurnosState> {
         super(TurnosState(currentWeekStart: _getStartOfWeek(DateTime.now()))) {
     on<TurnosLoadRequested>(_onLoadRequested);
     on<TurnosWeekChanged>(_onWeekChanged);
+    on<TurnosViewModeChanged>(_onViewModeChanged);
     on<TurnoCreated>(_onTurnoCreated);
     on<TurnoSelected>(_onTurnoSelected);
     on<TurnoDeselected>(_onTurnoDeselected);
@@ -70,6 +71,14 @@ class TurnosBloc extends Bloc<TurnosEvent, TurnosState> {
     _realtimeDebounce?.cancel();
     _realtimeChannel?.unsubscribe();
     return super.close();
+  }
+
+  void _onViewModeChanged(
+    TurnosViewModeChanged event,
+    Emitter<TurnosState> emit,
+  ) {
+    emit(state.copyWith(viewMode: event.viewMode, clearSelection: true));
+    add(TurnosLoadRequested(state.currentWeekStart));
   }
 
   Future<void> _onHolidayAdded(
@@ -151,9 +160,27 @@ class TurnosBloc extends Bloc<TurnosEvent, TurnosState> {
     emit(state.copyWith(
         isLoading: true, clearError: true, clearInfoMessage: true));
     try {
-      final start = event.weekStart;
-      final end = start
-          .add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+      DateTime start = event.weekStart;
+      DateTime end = start.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+
+      if (state.viewMode == CalendarView.monthly) {
+        // En vista mensual cargamos todo el mes que contiene al currentWeekStart (jueves determina el mes)
+        final focus = start.add(const Duration(days: 3));
+        final monthStart = DateTime(focus.year, focus.month, 1);
+        final monthEnd = DateTime(focus.year, focus.month + 1, 0, 23, 59, 59);
+        start = monthStart.subtract(Duration(days: monthStart.weekday - 1)); // start at first Monday
+        end = monthEnd.add(Duration(days: 7 - monthEnd.weekday, hours: 23, minutes: 59, seconds: 59)); // end at last Sunday
+      } else if (state.viewMode == CalendarView.yearly) {
+        // Para anual, quizás no necesitamos cargar turnos, pero por consistencia cargamos nada o lo mínimo
+        // o si queremos puntitos por día con turnos, cargaríamos el año. Pero 1 año de turnos es pesado.
+        // Lo dejamos vacío, el YearlyView mostrará los meses y al hacer click pasará a mensual.
+        emit(state.copyWith(
+          sessions: [],
+          selectedTurno: null,
+          isLoading: false,
+        ));
+        return;
+      }
 
       final instId = ProfileCache.institutionId;
       final instructorFilter = state.selectedInstructor;
