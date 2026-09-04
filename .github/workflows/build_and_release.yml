@@ -75,3 +75,57 @@ jobs:
         with:
           name: ArgityTurnos-macOS-App
           path: ArgityTurnos-macOS.zip
+
+  publish-to-web:
+    name: Publish to Argity Web
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Flutter code
+        uses: actions/checkout@v4
+        with:
+          path: flutter-app
+          
+      - name: Obtener versión desde pubspec.yaml
+        id: get_version
+        run: |
+          VERSION=$(grep 'version:' flutter-app/pubspec.yaml | awk '{print $2}' | cut -d '+' -f 1)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Detectada versión $VERSION"
+
+      - name: Checkout ArgityPage repo
+        uses: actions/checkout@v4
+        with:
+          repository: matifere/argity-page
+          token: ${{ secrets.PAGE_REPO_TOKEN }}
+          path: argity-page
+
+      - name: Download Windows Installer
+        uses: actions/download-artifact@v4
+        with:
+          name: ArgityTurnos-Windows-Installer
+          path: argity-page/app-releases
+
+      - name: Download macOS App
+        uses: actions/download-artifact@v4
+        with:
+          name: ArgityTurnos-macOS-App
+          path: argity-page/app-releases
+
+      - name: Preparar entorno Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Ejecutar script de release y subir cambios
+        working-directory: ./argity-page
+        run: |
+          npm install
+          npm run release ${{ env.VERSION }} "Lanzamiento automático desde GitHub Actions de la versión ${{ env.VERSION }}."
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "chore: Actualización automática a la versión ${{ env.VERSION }}"
+          git push
+
